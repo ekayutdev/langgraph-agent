@@ -191,6 +191,24 @@ def test_agent_non_dict_advice_asks_human_instead_of_crashing():
     assert out["scratch"]["g"]["advice"] is None
 
 
+def test_agent_non_numeric_confidence_asks_human():
+    """Hand-written advice with a non-numeric confidence must not crash
+    float(); it counts as unusable advice -> ask a human."""
+    spec = _spec("agent", False)
+    spec.nodes[-1].params["advice_key"] = advice_key("g")
+    app = build_graph(spec, checkpointer=InMemorySaver())
+    cfg = {"configurable": {"thread_id": "t"}}
+    with using_llm(ScriptedLLM([])):
+        app.invoke(
+            {"task": "t", "scratch": {"draft": "notes", advice_key("g"): {"choice": "approve", "confidence": "high"}}},
+            cfg,
+        )
+    ask = _ask(app, cfg)
+    assert ask is not None  # paused: gate asks a human, no crash
+    out = app.invoke(Command(resume={"choice": "revise"}), cfg)
+    assert out["scratch"]["g"]["by"] == "human"
+
+
 def test_approval_requires_checkpointer():
     with pytest.raises(GraphBuildError, match="checkpointer"):
         build_graph(_spec("human", False))

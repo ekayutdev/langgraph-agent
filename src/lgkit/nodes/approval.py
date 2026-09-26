@@ -30,11 +30,21 @@ def _usable(advice: Any) -> dict[str, Any] | None:
     return advice if advice and "error" not in advice else None
 
 
+def _confidence(advice: dict[str, Any]) -> float:
+    """Best-effort read: hand-written advice may carry a non-numeric
+    confidence (e.g. "high"); that counts as unusable advice (asks a
+    human) instead of crashing float()."""
+    try:
+        return float(advice.get("confidence", 0.0))
+    except (TypeError, ValueError):
+        return -1.0
+
+
 def _agent_can_decide(advice: dict[str, Any] | None, choices: list[str], min_confidence: float) -> bool:
     return (
         advice is not None
         and advice.get("choice") in choices
-        and float(advice.get("confidence", 0.0)) >= min_confidence
+        and _confidence(advice) >= min_confidence
     )
 
 
