@@ -107,6 +107,36 @@ def test_max_iterations_on_approval_gate_ends_run_not_first_choice():
     assert not app.get_state(cfg).interrupts
 
 
+def test_max_iterations_on_approval_gate_with_done_choice_still_ends_run():
+    """An approval gate whose choices include "done" must not route a
+    guard-injected max_iterations signal down the "done" edge when the human
+    answered "revise" — never auto-approve at the iteration limit."""
+    ran: list[str] = []
+
+    def _recorder(state, params, prompt, ctx=None, resolved=None):
+        ran.append(params.get("__node_id"))
+        return {"scratch": {"touched": params.get("__node_id")}}
+
+    register("custom", NodeDef(kind="custom", fn=_recorder, default_prompt="", description="recorder"))
+    gate = approval_gate("g", message="Publish?", choices=["done", "revise"])
+    wf = WorkflowSpec(
+        nodes=[NodeSpec(id="draft", kind="custom"), *gate.nodes, NodeSpec(id="publish", kind="custom")],
+        edges=[
+            EdgeSpec(source="draft", target="g"),
+            EdgeSpec(source="g", target="publish", condition="done"),  # listed FIRST
+            EdgeSpec(source="g", target="draft", condition="revise"),
+            EdgeSpec(source="publish", target="END"),
+        ],
+        entry="draft",
+    )
+    app = build_graph(wf, checkpointer=InMemorySaver())
+    cfg = {"configurable": {"thread_id": "done-choice"}}
+    app.invoke({"task": "t", "scratch": {"max_iterations": 1}}, cfg)
+    app.invoke(Command(resume={"choice": "revise"}), cfg)
+    assert "publish" not in ran
+    assert not app.get_state(cfg).interrupts
+
+
 def test_revise_loop_uses_fresh_advice_each_round():
     register("custom", NodeDef(kind="custom", fn=_drafter, default_prompt="", description="drafter"))
     frag = approval_gate(

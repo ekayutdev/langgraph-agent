@@ -220,17 +220,18 @@ def _signal_router(conditions: list[str], end_on_miss: bool = False) -> Callable
         signal = state.get("signal") or ""
         if signal in conditions:
             return signal
-        for exit_key in ("done", "failed", "max_iterations"):
-            if exit_key in conditions:
-                return exit_key
         if end_on_miss:
             # An approval gate on a back-edge gets an iteration guard after it;
             # once the budget is exhausted the guard emits "max_iterations",
-            # which matches no choice. Falling through to conditions[0] would
+            # which matches no choice. Falling through to any exit-key choice
+            # ("done"/"failed"/"max_iterations") or conditions[0] could
             # auto-approve work the human chose to revise — END the run
             # instead. Scoped to approval sources: hitl/other kinds keep the
             # historical behaviour.
             return "END"
+        for exit_key in ("done", "failed", "max_iterations"):
+            if exit_key in conditions:
+                return exit_key
         return conditions[0]
 
     return _route
