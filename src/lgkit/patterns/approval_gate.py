@@ -32,9 +32,18 @@ class Fragment:
 
 def _check_template(message: str) -> None:
     try:
-        list(string.Formatter().parse(message))
+        fields = list(string.Formatter().parse(message))
     except ValueError as e:
         raise ValueError(f"approval_gate: message is not a valid template ({e}): {message!r}") from e
+    for _, field, _, _ in fields:
+        if field is not None and (not field.strip() or field.strip().isdigit()):
+            # "" (Approve {}) and "0" (Approve {0}) are positional-index
+            # syntax that flat_state format_map cannot resolve — require
+            # named fields only.
+            raise ValueError(
+                f"approval_gate: message template fields must be named state paths, "
+                f"got {field!r} in {message!r}"
+            )
 
 
 def approval_gate(

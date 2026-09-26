@@ -51,6 +51,8 @@ def test_to_workflow_routes_every_choice_to_end():
         ({"approver": "agent", "advise": True, "criteria": "x"}, "advise"),
         ({"min_confidence": 1.5}, "min_confidence"),
         ({"message": "Approve {draft"}, "message"),
+        ({"message": "Approve {}"}, "message"),
+        ({"message": "Approve {0}"}, "message"),
     ],
 )
 def test_invalid_arguments_fail_at_build_time(kwargs, match):
