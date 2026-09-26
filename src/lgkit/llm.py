@@ -128,7 +128,7 @@ def _build_cohere(model: str, api_key: str | None, base_url: str | None, **kw: A
 def _build_litellm(model: str, api_key: str | None, base_url: str | None, **kw: Any) -> BaseChatModel:
     """LiteLLM proxy (OpenAI-compatible).
 
-    Defaults kept from lgtools: ``enable_thinking=False`` so reasoning models
+    Defaults carried over from the original implementation: ``enable_thinking=False`` so reasoning models
     (e.g. GLM-5.2) return ``content`` instead of only ``reasoning_content``, and
     ``disable_streaming="tool_calling"`` because that gateway drops tool calls
     from streamed responses. Callers can override both.
