@@ -76,10 +76,26 @@ def test_human_mode_accepts_bare_string_resume():
     assert out["scratch"]["g"]["comment"] == ""
 
 
-def test_human_mode_rejects_unknown_choice():
+def test_human_invalid_choice_re_prompts_then_accepts():
     app, cfg, _ = _run(_spec("human", False), ScriptedLLM([]))
-    with pytest.raises(ValueError, match="not in"):
-        app.invoke(Command(resume={"choice": "maybe"}), cfg)
+    app.invoke(Command(resume={"choice": "maybe"}), cfg)
+    ask = _ask(app, cfg)
+    assert ask is not None  # still paused
+    assert "maybe" in ask["error"]
+    assert ask["choices"] == CHOICES
+    out = app.invoke(Command(resume={"choice": "approve"}), cfg)
+    assert out["signal"] == "approve"
+    assert out["scratch"]["g"]["by"] == "human"
+
+
+def test_human_bare_string_invalid_resume_re_prompts():
+    app, cfg, _ = _run(_spec("human", False), ScriptedLLM([]))
+    app.invoke(Command(resume="nope"), cfg)
+    ask = _ask(app, cfg)
+    assert ask is not None  # still paused
+    assert "nope" in ask["error"]
+    out = app.invoke(Command(resume="approve"), cfg)
+    assert out["signal"] == "approve"
 
 
 def test_human_with_advice_shows_advice_and_calls_llm_once_across_resume():
@@ -143,6 +159,23 @@ def test_advisor_retry_recovers_on_second_attempt():
     app, cfg, out = _run(_spec("agent", True), ScriptedLLM([RuntimeError("blip"), GOOD]))
     assert _ask(app, cfg) is None
     assert out["scratch"]["g"]["by"] == "agent"
+
+
+def test_agent_non_dict_advice_asks_human_instead_of_crashing():
+    spec = _spec("agent", False)
+    spec.nodes[-1].params["advice_key"] = advice_key("g")
+    app = build_graph(spec, checkpointer=InMemorySaver())
+    cfg = {"configurable": {"thread_id": "t"}}
+    llm = ScriptedLLM([])
+    with using_llm(llm):
+        app.invoke({"task": "t", "scratch": {"draft": "notes", advice_key("g"): "looks fine"}}, cfg)
+    ask = _ask(app, cfg)
+    assert ask is not None  # paused: gate asks a human, no crash
+    assert ask["advice"] is None
+    assert ask["advice_error"] is None
+    out = app.invoke(Command(resume={"choice": "revise"}), cfg)
+    assert out["scratch"]["g"]["by"] == "human"
+    assert out["scratch"]["g"]["advice"] is None
 
 
 def test_approval_requires_checkpointer():
