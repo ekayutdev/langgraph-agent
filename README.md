@@ -6,8 +6,9 @@ Build LangGraph workflows from plain spec data, plus ready-made patterns.
 ## Install
 
 ```bash
-uv sync                      # core + dev tools
-uv add 'langgraph-agent[openai]' # in another project, with the OpenAI provider
+uv sync                              # in this repo: core + dev tools
+uv add --editable ../langgraph-agent # in another project (local path; not published to PyPI)
+uv add langchain-openai              # only if you use the OpenAI provider
 ```
 
 ## Approval gate
