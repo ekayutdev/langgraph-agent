@@ -63,6 +63,24 @@ def _problems(spec) -> list[_Problem]:
             if _is_blank(params.get("tools")) and _is_blank(params.get("tool_ids")):
                 found.append((f"{where}: no tools selected — this node will do nothing", False))
 
+        elif node.kind == "advisor":
+            # advisor.run indexes params["gate_id"] and params["choices"]
+            # directly — blank ones die mid-run with a bare KeyError.
+            if _is_blank(params.get("gate_id")):
+                found.append((f"{where}: 'gate_id' is required — name the gate this advisor serves", True))
+            if _is_blank(params.get("choices")):
+                found.append((f"{where}: 'choices' is required — the gate has nothing to pick from", True))
+
+        elif node.kind == "approval":
+            if _is_blank(params.get("choices")):
+                found.append((f"{where}: 'choices' is required — the gate has nothing to pick from", True))
+            elif any(_is_blank(c) or c == "escalate" for c in params.get("choices") or []):
+                # 'escalate' is the advisor's reserved word; a gate offering it
+                # would let the human answer it and collide with escalation.
+                found.append(
+                    (f"{where}: 'choices' must be non-blank and must not contain 'escalate'", True)
+                )
+
     return found
 
 
