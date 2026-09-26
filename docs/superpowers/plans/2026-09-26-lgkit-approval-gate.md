@@ -2558,3 +2558,5 @@ Claude-Session: https://claude.ai/code/session_017F1keyvotGL1g5aRamQaeb"
 - lgtools' node palette will list `advisor` and `approval` after the first build that registers them, but the frontend has no `NodeKind`/`NODE_COLORS`/Inspector entries for them yet (they render grey). Add frontend support, or filter lgkit kinds out of `node_palette()`, before using them from the editor.
 - `agent_node._flat` in lgtools duplicates `lgkit.nodes._template.flat_state`; switch it over once lgtools' agent nodes move.
 - Next patterns from the self-audit: plan-execute-review with `max_rounds`, keyword→LLM router, fan-out→synthesize (committee).
+- A per-gate `llm=` on the advisor bypasses the run's LLM, including the lgtools dry-run LLM — make the dry-run stub win before exposing gates in the editor, or dry-run builds will attempt real LLM calls.
+- `node.on_enter` event scripts on an approval node re-run on every resume/re-prompt (wrapper-level, same as hitl): an event script with side effects placed on a gate fires once per prompt, not once per run.

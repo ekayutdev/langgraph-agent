@@ -158,7 +158,7 @@ def build_graph(spec, checkpointer=None, store=None, dry_run=False, *, hooks=DEF
 | advisor เรียก LLM ล้มเหลวหลัง retry | บันทึก `{"error": ...}`; โหมด human → interrupt พร้อม `advice=None`, `advice_error`; โหมด agent → interrupt (escalate) |
 | structured output parse ไม่ผ่าน / choice ไม่อยู่ใน choices | ถือเป็นความล้มเหลวของ advisor (แถวบน) |
 | confidence < `min_confidence` หรือ `escalate` | interrupt |
-| คน resume ด้วย choice ที่ไม่อยู่ใน `choices` | `ValueError` |
+| คน resume ด้วย choice ที่ไม่อยู่ใน `choices` | gate ถามซ้ำ (`interrupt()` รอบใหม่ พร้อม `"error"` ใน payload) — ไม่ raise เพราะ LangGraph replay ค่าที่ resume ผิดไว้ ทำให้ thread ค้างถาวร (node `hitl` เดิมยังคง `ValueError` ตาม lgtools) |
 | spec มี `approval` node ที่อาจ interrupt แต่ `checkpointer=None` | `GraphBuildError` ตอน `build_graph` พร้อมข้อความแนะนำ `InMemorySaver`/`SqliteSaver` |
 | `approver="agent"` หรือ `advise=True` แต่ไม่มี `criteria`; `advise=True` คู่กับ `approver="agent"`; `choices` ว่างหรือมี `"escalate"` | `ValueError` ตอนเรียก `approval_gate()` |
 
