@@ -215,7 +215,7 @@ def _merge_into(base: dict[str, Any], extra: dict[str, Any]) -> None:
             base[k] = v
 
 
-def _signal_router(conditions: list[str]) -> Callable[[dict[str, Any]], str]:
+def _signal_router(conditions: list[str], end_on_miss: bool = False) -> Callable[[dict[str, Any]], str]:
     def _route(state: dict[str, Any]) -> str:
         signal = state.get("signal") or ""
         if signal in conditions:
@@ -223,6 +223,14 @@ def _signal_router(conditions: list[str]) -> Callable[[dict[str, Any]], str]:
         for exit_key in ("done", "failed", "max_iterations"):
             if exit_key in conditions:
                 return exit_key
+        if end_on_miss:
+            # An approval gate on a back-edge gets an iteration guard after it;
+            # once the budget is exhausted the guard emits "max_iterations",
+            # which matches no choice. Falling through to conditions[0] would
+            # auto-approve work the human chose to revise — END the run
+            # instead. Scoped to approval sources: hitl/other kinds keep the
+            # historical behaviour.
+            return "END"
         return conditions[0]
 
     return _route
@@ -581,6 +589,7 @@ def build_graph(
     validate_goto_agents(spec, hooks.agent_resolver)
     map_ids = {n.id for n in spec.nodes if n.kind == "map"}
     plain_targets = spec._plain_targets_by_source()
+    node_by_id = {n.id: n for n in spec.nodes}
 
     graph = StateGraph(_build_state_schema(spec))
 
@@ -674,7 +683,16 @@ def build_graph(
                 assert e.condition is not None
                 target = END if e.target == "END" else e.target
                 mapping[e.condition] = target
-            router = _signal_router(conditions)
+            # Scoped router fix: when an approval gate's iteration guard emits
+            # "max_iterations" (a signal that matches no choice), END the run
+            # instead of falling through to the first conditional edge —
+            # auto-approving work the human chose to revise. Other kinds
+            # (hitl etc.) keep the historical conditions[0] fallback.
+            src_node = node_by_id.get(source)
+            from_approval = src_node is not None and src_node.kind == "approval"
+            router = _signal_router(conditions, end_on_miss=from_approval)
+            if from_approval:
+                mapping.setdefault("END", END)
             graph.add_conditional_edges(edge_source, router, mapping)
 
     compile_kwargs: dict[str, Any] = {"checkpointer": checkpointer}
