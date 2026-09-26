@@ -36,6 +36,11 @@ def _no_dispatch(*_args: Any, **_kwargs: Any) -> dict[str, Any]:
 
 _VOLATILE_KEYS: frozenset[str] = frozenset({"events", "messages", "seq", "iteration", "signal"})
 
+# Kinds that pause with interrupt(): they need a checkpointer to resume and must
+# never be cached (a cached pausing node crashes resume inside LangGraph).
+_PAUSING_KINDS: frozenset[str] = frozenset({"hitl", "harness", "approval"})
+_NEEDS_CHECKPOINTER: frozenset[str] = frozenset({"approval"})
+
 _NODE_CACHE: InMemoryCache | None = None
 
 
@@ -540,6 +545,15 @@ def build_graph(
 
     ensure_registered()
 
+    if checkpointer is None:
+        needing = [n.id for n in spec.nodes if n.kind in _NEEDS_CHECKPOINTER]
+        if needing:
+            raise GraphBuildError(
+                f"Nodes {needing} can pause for a human and need a checkpointer to resume: "
+                "build_graph(spec, checkpointer=InMemorySaver()) "
+                "(from langgraph.checkpoint.memory import InMemorySaver)"
+            )
+
     # Default memory nodes' namespace
     for node in spec.nodes:
         if node.kind == "memory" and not (node.params or {}).get("namespace"):
@@ -595,7 +609,7 @@ def build_graph(
             #   and a replayed cache entry skips the agent entirely, bypassing
             #   every permission-gate evaluation and all side effects. _NODE_CACHE
             #   is process-global, so this would leak across runs (NEW-1).
-            if pol.cache is not None and node.kind not in ("hitl", "harness"):
+            if pol.cache is not None and node.kind not in _PAUSING_KINDS:
                 kwargs["cache_policy"] = CachePolicy(
                     key_func=_cache_key_for(node), ttl=pol.cache.ttl_s
                 )
