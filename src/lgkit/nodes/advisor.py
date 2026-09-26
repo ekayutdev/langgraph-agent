@@ -9,12 +9,14 @@ human already saw. It never raises; a failure is recorded as
 
 from __future__ import annotations
 
+import json
 from typing import Any, Literal
 
-from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 from langgraph.errors import GraphBubbleUp
 from pydantic import BaseModel, Field, create_model
 
+from lgkit.context import current_ctx
 from lgkit.nodes._template import flat_state
 
 ESCALATE = "escalate"
@@ -42,13 +44,28 @@ def advice_model(choices: list[str]) -> type[BaseModel]:
 
 
 def _llm_for(params: dict[str, Any], ctx: Any) -> Any:
-    """Precedence: per-gate llm spec -> run context llm -> lgkit default."""
+    """Precedence: ctx dry-run -> per-gate llm spec -> run context llm ->
+    lgkit default.
+
+    A dry-run ALWAYS wins: it must never build a real model, even when a
+    per-gate ``llm`` spec or ``ctx.llm`` is set. If a dry-run is bound in the
+    ambient context but did not reach us as ``ctx``, the ctx plumbing
+    regressed — refuse to build a real model rather than silently spending
+    API money (mirrors lgtools' agent_node).
+    """
     from lgkit.llm import build_llm
 
+    if ctx is not None and getattr(ctx, "dry_run", None) is not None:
+        return ctx.dry_run.model_for(
+            params.get("__node_id") or f"{params['gate_id']}__advisor"
+        )
     if params.get("llm"):
         return build_llm(**params["llm"])
     if ctx is not None and getattr(ctx, "llm", None) is not None:
         return ctx.llm
+    bound_ctx = current_ctx()
+    if bound_ctx is not None and getattr(bound_ctx, "dry_run", None) is not None:
+        raise RuntimeError("dry-run context lost: refusing to build a real model")
     return build_llm()
 
 
@@ -73,7 +90,15 @@ def run(state, params, prompt, ctx=None, resolved=None) -> dict[str, Any]:
         try:
             structured = _llm_for(params, ctx).with_structured_output(schema)
             out = structured.invoke([SystemMessage(system), HumanMessage(message)])
-            data = out.model_dump() if isinstance(out, BaseModel) else out
+            # A fake/scripted model returns a plain AIMessage (itself a
+            # pydantic model) whose .content is the reply: parse that as
+            # JSON before the BaseModel branch can misread it.
+            if isinstance(out, BaseMessage):
+                data = json.loads(out.content)
+            elif isinstance(out, BaseModel):
+                data = out.model_dump()
+            else:
+                data = out
             result = schema.model_validate(data).model_dump()
             break
         except GraphBubbleUp:
