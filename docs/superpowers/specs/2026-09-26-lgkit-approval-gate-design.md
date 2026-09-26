@@ -63,7 +63,7 @@ frag = approval_gate(
 
 ### 3.3 Node kinds ใหม่
 
-- `advisor` — เรียก LLM ด้วย `with_structured_output` schema `{choice: Literal[*choices, "escalate"], confidence: float 0–1, reason: str}` เก็บผลใน `scratch[f"{id}__advice"]` เป็น `{"choice", "confidence", "reason"}` หรือ `{"error": str}` เมื่อล้มเหลว (หลัง retry ตาม `NodePolicy.retry`) **ไม่ raise**
+- `advisor` — เรียก LLM ด้วย `with_structured_output` schema `{choice: Literal[*choices, "escalate"], confidence: float 0–1, reason: str}` เก็บผลใน `scratch[f"{id}__advice"]` เป็น `{"choice", "confidence", "reason"}` หรือ `{"error": str}` เมื่อล้มเหลว (หลัง retry ภายใน node ตาม param `max_attempts`, ค่าเริ่มต้น 2) **ไม่ raise**
 - `approval` — อ่าน advice จาก scratch แล้ว:
   - `approver="agent"` และ advice สำเร็จ, `choice != "escalate"`, `confidence >= min_confidence` → ตัดสินโดย agent ไม่ interrupt
   - กรณีอื่น → `interrupt({"node", "message", "choices", "advice", "advice_error"})`
@@ -124,7 +124,6 @@ langgraph-agent/
 class BuildHooks:
     agent_resolver: Callable[[str], AgentSpec | None] = lambda _id: None
     workflow_resolver: Callable[[str], WorkflowSpec | None] = lambda _id: None
-    resolve: Callable[[WorkflowSpec], Any] = lambda spec: None   # → ค่า `resolved` ที่ส่งให้ node fn
     dispatch_event: Callable[..., Any] | None = None             # None = ไม่ dispatch event script
 
 def build_graph(spec, checkpointer=None, store=None, dry_run=False, *, hooks=DEFAULT_HOOKS, resolved=None): ...
@@ -167,7 +166,7 @@ def build_graph(spec, checkpointer=None, store=None, dry_run=False, *, hooks=DEF
 
 ## 6. การทดสอบ
 
-- LLM ปลอม: `langchain_core` `GenericFakeChatModel` (ไม่เรียก API จริงใน test)
+- LLM ปลอม: `lgkit.testing.ScriptedLLM` (`GenericFakeChatModel` ไม่รองรับ `with_structured_output`) — ไม่เรียก API จริงใน test
 - Unit ต่อทุกแถวของตาราง error และทุกโหมดในข้อ 3.1
 - Human flow: `InMemorySaver` → invoke จนถึง interrupt → ตรวจ payload → `Command(resume={"choice": ..., "comment": ...})` → ตรวจ state ปลายทางและ `signal`
 - **Regression ของปัญหาเดิม:** นับการเรียก LLM ของ advisor ต้องเท่ากับ 1 แม้ผ่าน interrupt + resume
