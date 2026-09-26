@@ -171,3 +171,24 @@ def test_context_lost_refuses_real_model(monkeypatch):
     rec = out["scratch"][advice_key("g")]
     assert "dry-run context lost" in rec["error"]
     assert not calls  # build_llm was never reached
+
+
+def test_context_lost_refuses_even_with_per_gate_llm(monkeypatch):
+    """The lost-context guard must run BEFORE the per-gate llm spec, or a gate
+    with llm=... would still build a real model during a dry-run."""
+    calls: list = []
+    _no_real_llm(monkeypatch, calls)
+    token = use_ctx(_ctx(_FakeDryRun()))
+    try:
+        params = {
+            "gate_id": "g",
+            "message": "Publish?",
+            "choices": CHOICES,
+            "criteria": "x",
+            "llm": {"provider": "openai", "model": "gpt-4o-mini"},
+        }
+        out = advisor.run({}, params, None, None)
+    finally:
+        clear_ctx(token)
+    assert "dry-run context lost" in out["scratch"][advice_key("g")]["error"]
+    assert not calls

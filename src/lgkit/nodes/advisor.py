@@ -44,8 +44,9 @@ def advice_model(choices: list[str]) -> type[BaseModel]:
 
 
 def _llm_for(params: dict[str, Any], ctx: Any) -> Any:
-    """Precedence: ctx dry-run -> per-gate llm spec -> run context llm ->
-    lgkit default.
+    """Precedence: ctx dry-run -> (refuse if the ambient context has a dry-run
+    that did not reach us) -> per-gate llm spec -> run context llm -> lgkit
+    default.
 
     A dry-run ALWAYS wins: it must never build a real model, even when a
     per-gate ``llm`` spec or ``ctx.llm`` is set. If a dry-run is bound in the
@@ -59,13 +60,14 @@ def _llm_for(params: dict[str, Any], ctx: Any) -> Any:
         return ctx.dry_run.model_for(
             params.get("__node_id") or f"{params['gate_id']}__advisor"
         )
+    bound_ctx = current_ctx()
+    if bound_ctx is not None and getattr(bound_ctx, "dry_run", None) is not None:
+        # Checked before the per-gate llm spec: that spec builds a real model too.
+        raise RuntimeError("dry-run context lost: refusing to build a real model")
     if params.get("llm"):
         return build_llm(**params["llm"])
     if ctx is not None and getattr(ctx, "llm", None) is not None:
         return ctx.llm
-    bound_ctx = current_ctx()
-    if bound_ctx is not None and getattr(bound_ctx, "dry_run", None) is not None:
-        raise RuntimeError("dry-run context lost: refusing to build a real model")
     return build_llm()
 
 
