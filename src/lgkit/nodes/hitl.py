@@ -15,6 +15,7 @@ from langgraph.types import interrupt
 from lgkit.events import emit_event
 from lgkit.nodes._template import flat_state
 
+
 def run(state, params, prompt, ctx=None, resolved=None) -> dict[str, Any]:
     node_id = params.get("__node_id") or "hitl"
     choices = list(params.get("choices") or [])
