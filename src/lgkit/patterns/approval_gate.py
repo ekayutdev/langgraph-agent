@@ -70,6 +70,8 @@ def approval_gate(
     if advise and approver == "agent":
         raise ValueError("approval_gate: advise=True only applies to approver='human'")
     use_advisor = advise or approver == "agent"
+    if llm and not use_advisor:
+        raise ValueError("approval_gate: llm only configures the advisor; no advisor runs with approver='human' and advise=False")
     if use_advisor and not (criteria and criteria.strip()):
         raise ValueError("approval_gate: criteria is required when an advisor runs")
     if not 0.0 <= min_confidence <= 1.0:

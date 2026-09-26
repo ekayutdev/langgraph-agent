@@ -53,6 +53,7 @@ def test_to_workflow_routes_every_choice_to_end():
         ({"message": "Approve {draft"}, "message"),
         ({"message": "Approve {}"}, "message"),
         ({"message": "Approve {0}"}, "message"),
+        ({"llm": {"provider": "openai"}}, "llm"),
     ],
 )
 def test_invalid_arguments_fail_at_build_time(kwargs, match):
