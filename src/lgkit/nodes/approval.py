@@ -41,7 +41,8 @@ def _agent_can_decide(advice: dict[str, Any] | None, choices: list[str], min_con
 def _parse_answer(answer: Any) -> tuple[Any, str]:
     if isinstance(answer, str):
         return answer, ""
-    answer = answer or {}
+    if not isinstance(answer, dict):
+        return None, ""
     return answer.get("choice"), str(answer.get("comment") or "")
 
 

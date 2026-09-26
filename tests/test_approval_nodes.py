@@ -98,6 +98,18 @@ def test_human_bare_string_invalid_resume_re_prompts():
     assert out["signal"] == "approve"
 
 
+@pytest.mark.parametrize("resume", [5, ["approve"]])
+def test_human_non_str_non_dict_resume_re_prompts(resume):
+    app, cfg, _ = _run(_spec("human", False), ScriptedLLM([]))
+    app.invoke(Command(resume=resume), cfg)
+    ask = _ask(app, cfg)
+    assert ask is not None  # still paused
+    assert "error" in ask
+    out = app.invoke(Command(resume="approve"), cfg)
+    assert out["signal"] == "approve"
+    assert out["scratch"]["g"]["by"] == "human"
+
+
 def test_human_with_advice_shows_advice_and_calls_llm_once_across_resume():
     llm = ScriptedLLM([GOOD])
     app, cfg, _ = _run(_spec("human", True), llm)
