@@ -105,7 +105,8 @@ def test_human_non_str_non_dict_resume_re_prompts(resume):
     ask = _ask(app, cfg)
     assert ask is not None  # still paused
     assert "error" in ask
-    out = app.invoke(Command(resume="approve"), cfg)
+    assert repr(resume) in ask["error"]  # names the submitted value, not None
+    out = app.invoke(Command(resume={"choice": "approve"}), cfg)
     assert out["signal"] == "approve"
     assert out["scratch"]["g"]["by"] == "human"
 

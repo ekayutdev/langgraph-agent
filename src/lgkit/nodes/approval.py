@@ -77,7 +77,7 @@ def run(state, params, prompt, ctx=None, resolved=None) -> dict[str, Any]:
             choice, comment = _parse_answer(answer)
             if choice in choices:
                 break
-            error = f"choice {choice!r} not in {choices}"
+            error = f"choice {choice!r} not in {choices} (answer was {answer!r})"
         by = "human"
 
     result = {"choice": choice, "comment": comment, "by": by, "advice": advice}
