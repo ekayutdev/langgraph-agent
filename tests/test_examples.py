@@ -32,3 +32,24 @@ def test_approval_demo_escalates_and_records_human(monkeypatch):
     assert result["by"] == "human"
     assert result["choice"] == "approve"
     assert result["advice"]["confidence"] == 0.55
+
+
+def test_approval_demo_reprompts_on_invalid_answer(monkeypatch):
+    mod = _load("approval_demo")
+    monkeypatch.delenv("LGKIT_REAL_LLM", raising=False)
+    answers = iter(["bogus", "approve"])
+    monkeypatch.setattr("builtins.input", lambda _prompt="": next(answers))
+    result = mod.main()
+    assert result["by"] == "human"
+    assert result["choice"] == "approve"
+
+
+def test_approval_demo_eof_returns_none(monkeypatch):
+    mod = _load("approval_demo")
+    monkeypatch.delenv("LGKIT_REAL_LLM", raising=False)
+
+    def _eof(_prompt=""):
+        raise EOFError
+
+    monkeypatch.setattr("builtins.input", _eof)
+    assert mod.main() is None

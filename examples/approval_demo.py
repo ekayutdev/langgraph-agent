@@ -22,7 +22,7 @@ def make_llm():
     return ScriptedLLM([{"choice": "approve", "confidence": 0.55, "reason": "Fine but terse."}])
 
 
-def main() -> dict:
+def main() -> dict | None:
     gate = approval_gate(
         "publish_check",
         message="Publish this announcement?\n\n{scratch.draft}",
@@ -36,11 +36,16 @@ def main() -> dict:
 
     with using_llm(make_llm()):
         app.invoke({"task": "publish", "scratch": {"draft": "Release moves to Friday."}}, cfg)
-        snap = app.get_state(cfg)
-        if snap.interrupts:
+        while (snap := app.get_state(cfg)).interrupts:
             ask = snap.interrupts[0].value
-            print(f"Agent escalated. Advice: {ask['advice']}  Error: {ask['advice_error']}")
-            answer = input(f"{ask['message']}\nChoose {ask['choices']}: ").strip() or "approve"
+            print(f"Agent escalated. Advice: {ask['advice']}  Error: {ask.get('advice_error')}")
+            if ask.get("error"):
+                print(f"Invalid answer: {ask['error']}")
+            try:
+                answer = input(f"{ask['message']}\nChoose {ask['choices']}: ").strip()
+            except EOFError:
+                print("No decision was made (no input available).")
+                return None
             app.invoke(Command(resume={"choice": answer, "comment": "via demo"}), cfg)
 
     result = app.get_state(cfg).values["scratch"]["publish_check"]
