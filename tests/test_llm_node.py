@@ -75,6 +75,23 @@ def test_signal_outside_allowed_values_is_a_failed_attempt_then_raises():
     assert llm.calls == 2
 
 
+def test_signal_field_is_always_required_even_if_the_entry_says_optional():
+    # "required": false on the signal field must be ignored: an optional
+    # signal would let a reply that omits it validate and emit None — a
+    # missing signal the router would act on.
+    llm = ScriptedLLM([{}, {}])
+    spec = _one(
+        {
+            "output_fields": [{"name": "verdict", "required": False}],
+            "signal_field": "verdict",
+            "signal_values": ["approve", "revise"],
+        }
+    )
+    with pytest.raises(RuntimeError, match=r"llm node 'n' failed after 2 attempts"):
+        _run(spec, llm)
+    assert llm.calls == 2
+
+
 def test_retry_recovers():
     llm = ScriptedLLM([RuntimeError("blip"), "fine"])
     assert _run(_one(), llm)["scratch"]["n"] == "fine"
@@ -175,6 +192,14 @@ def test_dry_run_with_next_mock_advances_per_visit_and_fails_when_exhausted(monk
         clear_ctx(token)
 
 
+def test_conditional_edges_require_a_signal_field():
+    # Without signal_field the node emits no fresh signal, so the router
+    # would act on whatever signal a previous node left behind.
+    spec = _one({}, edges=[EdgeSpec(source="n", target="END", condition="go")])
+    with pytest.raises(GraphBuildError, match="signal_field"):
+        build_graph(spec)
+
+
 @pytest.mark.parametrize(
     "params, match",
     [
@@ -182,6 +207,40 @@ def test_dry_run_with_next_mock_advances_per_visit_and_fails_when_exhausted(monk
         ({"output_fields": [{"name": "verdict"}], "signal_field": "verdict"}, "signal_values"),
         ({"signal_field": "verdict", "signal_values": ["x"]}, "signal_field"),
         ({"output_fields": [{"type": "string"}]}, "output_fields"),
+        (
+            {
+                "output_fields": [{"name": "verdict"}, {"name": "feedback"}],
+                "signal_field": "verdict",
+                "signal_values": "approve",
+            },
+            "signal_values",
+        ),
+        (
+            {
+                "output_fields": [{"name": "verdict"}, {"name": "feedback"}],
+                "signal_field": "verdict",
+                "signal_values": [1, 2],
+            },
+            "signal_values",
+        ),
+        (
+            {
+                "output_fields": [{"name": "verdict"}, {"name": "feedback"}],
+                "signal_field": "verdict",
+                "signal_values": ["", "go"],
+            },
+            "signal_values",
+        ),
+        ({"output_fields": [{"name": "verdict", "type": "integer"}]}, "type"),
+        (
+            {
+                "output_fields": [
+                    {"name": "verdict", "type": "string"},
+                    {"name": "verdict", "type": "string"},
+                ]
+            },
+            "unique",
+        ),
     ],
 )
 def test_bad_llm_params_fail_at_build_time(params, match):

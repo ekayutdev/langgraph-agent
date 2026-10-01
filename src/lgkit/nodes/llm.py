@@ -37,11 +37,16 @@ def output_model(
     defs: dict[str, Any] = {}
     for f in fields:
         name = f["name"]
+        desc = f.get("description")
         if name == signal_field:
             typ: Any = Literal[tuple(signal_values)]
-        else:
-            typ = _TYPES.get(str(f.get("type") or "string"), str)
-        desc = f.get("description")
+            # The signal is ALWAYS required, whatever the entry's "required"
+            # says: an optional signal would let a reply that omits it
+            # validate and emit None — a missing signal the router would
+            # act on.
+            defs[name] = (typ, Field(..., description=desc))
+            continue
+        typ = _TYPES.get(str(f.get("type") or "string"), str)
         if f.get("required", True):
             defs[name] = (typ, Field(..., description=desc))
         else:
@@ -80,6 +85,8 @@ def _call(params, ctx, node_id: str, messages: list, schema: type[BaseModel] | N
         raw = dry.next_mock(node_id)
         if raw is None:
             raise RuntimeError("no scripted reply left")
+        # A failed attempt here consumes this scripted reply: the next
+        # attempt gets the following one.
         return AIMessage(content=raw)
     model = resolve_llm(params, ctx, node_id)
     return (model if schema is None else model.with_structured_output(schema)).invoke(messages)

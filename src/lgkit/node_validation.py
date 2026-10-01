@@ -86,16 +86,44 @@ def _problems(spec) -> list[_Problem]:
             names = [f.get("name") for f in fields if isinstance(f, dict)]
             if len(names) != len(fields) or any(_is_blank(n) for n in names):
                 found.append((f"{where}: every entry of 'output_fields' needs a 'name'", True))
+            if len(set(names)) != len(names):
+                found.append((f"{where}: 'output_fields' names must be unique", True))
+            bad_types = [
+                str(f.get("type"))
+                for f in fields
+                if isinstance(f, dict) and f.get("type") is not None
+                and f.get("type") not in ("string", "number", "boolean", "object", "array")
+            ]
+            if bad_types:
+                found.append((f"{where}: every 'type' in 'output_fields' must be one of string, number, boolean, object, array", True))
             signal_field = params.get("signal_field")
             if not _is_blank(signal_field):
                 if signal_field not in names:
                     found.append(
                         (f"{where}: 'signal_field' must name one of 'output_fields'", True)
                     )
-                if _is_blank(params.get("signal_values")):
+                values = params.get("signal_values")
+                ok_values = (
+                    isinstance(values, list)
+                    and bool(values)
+                    and all(isinstance(v, str) and v.strip() for v in values)
+                )
+                if not ok_values:
                     found.append(
-                        (f"{where}: 'signal_values' is required when 'signal_field' is set", True)
+                        (
+                            f"{where}: 'signal_values' must be a list of non-blank strings when 'signal_field' is set",
+                            True,
+                        )
                     )
+            if _is_blank(signal_field) and any(
+                e.source == node.id and e.condition for e in spec.edges
+            ):
+                found.append(
+                    (
+                        f"{where}: has conditional edges but no 'signal_field' — it would route on a stale signal",
+                        True,
+                    )
+                )
 
     return found
 
