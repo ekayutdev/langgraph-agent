@@ -179,7 +179,7 @@ def test_test_case_warnings_checks_answers_against_approval_choices():
     ]
     warnings = spec.test_case_warnings()
     assert len(warnings) == 1
-    assert "not a choice of hitl node 'gate'" in warnings[0]
+    assert "not a choice of gate node 'gate'" in warnings[0]
 
 
 def test_test_case_warnings_accepts_waiting_expect_status():
@@ -197,4 +197,4 @@ def test_test_case_warnings_still_rejects_bogus_expect_status():
     spec.test_cases = [TestCaseSpec(id="c1", task="t", expect_status="bogus")]
     warnings = spec.test_case_warnings()
     assert len(warnings) == 1
-    assert "is not a terminal status" in warnings[0]
+    assert "is not a known status" in warnings[0]

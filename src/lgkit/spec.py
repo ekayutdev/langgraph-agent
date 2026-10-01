@@ -738,19 +738,19 @@ class WorkflowSpec(BaseModel):
                 warnings.append(f"{label} has no task input")
             if case.expect_status not in {"done", "failed", "max_iterations", "waiting"}:
                 warnings.append(
-                    f"{label} expect_status '{case.expect_status}' is not a terminal status"
+                    f"{label} expect_status '{case.expect_status}' is not a known status"
                 )
             for k in sorted(case.mock_scripts):
                 if k not in known_script_keys:
                     warnings.append(f"{label} mock_scripts references unknown node '{k}'")
             for gate, answers in sorted(case.hitl_responses.items()):
                 if gate not in gate_choices:
-                    warnings.append(f"{label} hitl_responses references unknown hitl node '{gate}'")
+                    warnings.append(f"{label} hitl_responses references unknown gate node '{gate}'")
                     continue
                 for a in answers:
                     if a.choice not in gate_choices[gate]:
                         warnings.append(
-                            f"{label} answer '{a.choice}' is not a choice of hitl node '{gate}'"
+                            f"{label} answer '{a.choice}' is not a choice of gate node '{gate}'"
                         )
             for a in case.assertions:
                 if a.kind == "node_count":
