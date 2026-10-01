@@ -81,6 +81,22 @@ def _problems(spec) -> list[_Problem]:
                     (f"{where}: 'choices' must be non-blank and must not contain 'escalate'", True)
                 )
 
+        elif node.kind == "llm":
+            fields = params.get("output_fields") or []
+            names = [f.get("name") for f in fields if isinstance(f, dict)]
+            if len(names) != len(fields) or any(_is_blank(n) for n in names):
+                found.append((f"{where}: every entry of 'output_fields' needs a 'name'", True))
+            signal_field = params.get("signal_field")
+            if not _is_blank(signal_field):
+                if signal_field not in names:
+                    found.append(
+                        (f"{where}: 'signal_field' must name one of 'output_fields'", True)
+                    )
+                if _is_blank(params.get("signal_values")):
+                    found.append(
+                        (f"{where}: 'signal_values' is required when 'signal_field' is set", True)
+                    )
+
     return found
 
 

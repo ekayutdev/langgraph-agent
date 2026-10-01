@@ -41,6 +41,11 @@ _VOLATILE_KEYS: frozenset[str] = frozenset({"events", "messages", "seq", "iterat
 _PAUSING_KINDS: frozenset[str] = frozenset({"hitl", "harness", "approval"})
 _NEEDS_CHECKPOINTER: frozenset[str] = frozenset({"approval"})
 
+# Sources whose unmatched signal ENDs the run instead of falling through to an
+# exit-key choice or the first conditional edge. For these kinds a fallthrough
+# would act on a decision nobody made (auto-approve, or loop forever).
+_END_ON_MISS_KINDS: frozenset[str] = frozenset({"approval", "llm"})
+
 _NODE_CACHE: InMemoryCache | None = None
 
 
@@ -221,13 +226,13 @@ def _signal_router(conditions: list[str], end_on_miss: bool = False) -> Callable
         if signal in conditions:
             return signal
         if end_on_miss:
-            # An approval gate on a back-edge gets an iteration guard after it;
-            # once the budget is exhausted the guard emits "max_iterations",
-            # which matches no choice. Falling through to any exit-key choice
+            # An approval / llm / loop_limit source (see _END_ON_MISS_KINDS)
+            # on a back-edge gets an iteration guard after it; once the budget
+            # is exhausted the guard emits "max_iterations", which matches no
+            # choice. Falling through to any exit-key choice
             # ("done"/"failed"/"max_iterations") or conditions[0] could
-            # auto-approve work the human chose to revise — END the run
-            # instead. Scoped to approval sources: hitl/other kinds keep the
-            # historical behaviour.
+            # act on a decision nobody made (auto-approve, or loop forever) —
+            # END the run instead. Other kinds keep the historical behaviour.
             return "END"
         for exit_key in ("done", "failed", "max_iterations"):
             if exit_key in conditions:
@@ -684,15 +689,17 @@ def build_graph(
                 assert e.condition is not None
                 target = END if e.target == "END" else e.target
                 mapping[e.condition] = target
-            # Scoped router fix: when an approval gate's iteration guard emits
-            # "max_iterations" (a signal that matches no choice), END the run
-            # instead of falling through to the first conditional edge —
-            # auto-approving work the human chose to revise. Other kinds
-            # (hitl etc.) keep the historical conditions[0] fallback.
+            # Scoped router fix: when an approval / llm / loop_limit source
+            # (see _END_ON_MISS_KINDS) emits a signal that matches no
+            # condition, END the run instead of falling through to the first
+            # conditional edge — acting on a decision nobody made
+            # (auto-approving work the human chose to revise, or looping
+            # forever). Other kinds (hitl etc.) keep the historical
+            # conditions[0] fallback.
             src_node = node_by_id.get(source)
-            from_approval = src_node is not None and src_node.kind == "approval"
-            router = _signal_router(conditions, end_on_miss=from_approval)
-            if from_approval:
+            end_on_miss = src_node is not None and src_node.kind in _END_ON_MISS_KINDS
+            router = _signal_router(conditions, end_on_miss=end_on_miss)
+            if end_on_miss:
                 mapping.setdefault("END", END)
             graph.add_conditional_edges(edge_source, router, mapping)
 
