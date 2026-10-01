@@ -137,6 +137,11 @@ def test_max_iterations_on_approval_gate_with_done_choice_still_ends_run():
     assert not app.get_state(cfg).interrupts
 
 
+def test_approval_gate_fills_named_exits():
+    frag = approval_gate("g", message="Ok?", choices=["yes", "no"])
+    assert frag.exits == {"yes": ("g", "yes"), "no": ("g", "no")}
+
+
 def test_revise_loop_uses_fresh_advice_each_round():
     register("custom", NodeDef(kind="custom", fn=_drafter, default_prompt="", description="drafter"))
     frag = approval_gate(

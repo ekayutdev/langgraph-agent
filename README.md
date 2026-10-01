@@ -39,6 +39,32 @@ Every mode writes `scratch[<id>] = {"choice", "comment", "by", "advice"}` and ro
 
 Run the offline demo: `uv run python examples/approval_demo.py`
 
+## Plan → execute → review
+
+```python
+from lgkit.builder import build_graph
+from lgkit.patterns import plan_execute_review
+
+per = plan_execute_review(
+    "doc",
+    planner="Break the task into steps.",
+    executor="Write the document following the plan.",   # or a NodeSpec + executor_result_key
+    reviewer="Approve only if every step of the plan is covered.",
+    max_rounds=3,                                         # most times the execute step runs
+)
+app = build_graph(per.to_workflow())
+state = app.invoke({"task": "Document the GET /health endpoint."})
+state["scratch"]["doc__result"]      # the work
+state["scratch"]["doc__review"]      # {"verdict": "approve" | "revise", "feedback": ...}
+state["scratch"].get("doc__exhausted")  # True when the rounds ran out — NOT an approval
+```
+
+The fragment has two named exits, `per.exits["approved"]` and `per.exits["exhausted"]`, each a `(node id, condition)` pair — wire the exhausted one into an `approval_gate` to let a human decide.
+
+Its building blocks are ordinary node kinds you can use directly: `llm` (one LLM call; text or structured output; a structured field can be the routing signal) and `loop_limit` (`again` until `max_rounds`, then `exhausted`).
+
+Run the offline demo: `uv run python examples/plan_execute_review_pattern.py`
+
 ## Tests
 
 ```bash
