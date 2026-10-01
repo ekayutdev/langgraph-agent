@@ -723,7 +723,7 @@ class WorkflowSpec(BaseModel):
         known_script_keys = ids | self._reachable_subagent_ids(agent_resolver)
         gate_choices: dict[str, list] = {}
         for n in self.nodes:
-            if n.kind != "hitl":
+            if n.kind not in {"hitl", "approval"}:
                 continue
             choices = (n.params or {}).get("choices") or []
             gate_choices[n.id] = choices if isinstance(choices, list) else []
@@ -736,7 +736,7 @@ class WorkflowSpec(BaseModel):
             label = f"test case '{case.id}'"
             if not case.task.strip():
                 warnings.append(f"{label} has no task input")
-            if case.expect_status not in {"done", "failed", "max_iterations"}:
+            if case.expect_status not in {"done", "failed", "max_iterations", "waiting"}:
                 warnings.append(
                     f"{label} expect_status '{case.expect_status}' is not a terminal status"
                 )

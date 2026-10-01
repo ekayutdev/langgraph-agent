@@ -130,3 +130,71 @@ def test_a_stored_spec_carrying_exit_conditions_still_loads():
     )
     assert spec.entry == "a"
     assert not hasattr(spec, "exit_conditions")
+
+
+# --------------------------------------------------------------------------- #
+# test_case_warnings: approval gates + the "waiting" status
+# --------------------------------------------------------------------------- #
+
+
+def _gate_spec(node_kind: str = "hitl") -> WorkflowSpec:
+    return WorkflowSpec(
+        nodes=[
+            NodeSpec(
+                id="gate",
+                kind=node_kind,
+                params={"message": "Approve?", "choices": ["approve", "reject"]},
+            ),
+        ],
+        edges=[EdgeSpec(source="gate", target="END", condition="approve")],
+        entry="gate",
+    )
+
+
+def test_test_case_warnings_accepts_hitl_responses_on_approval_gate():
+    """hitl_responses keyed on an approval node is not an unknown gate."""
+    from lgkit.spec import HitlAnswer, TestCaseSpec
+
+    spec = _gate_spec("approval")
+    spec.test_cases = [
+        TestCaseSpec(
+            id="c1",
+            task="t",
+            hitl_responses={"gate": [HitlAnswer(choice="approve")]},
+        )
+    ]
+    assert spec.test_case_warnings() == []
+
+
+def test_test_case_warnings_checks_answers_against_approval_choices():
+    from lgkit.spec import HitlAnswer, TestCaseSpec
+
+    spec = _gate_spec("approval")
+    spec.test_cases = [
+        TestCaseSpec(
+            id="c1",
+            task="t",
+            hitl_responses={"gate": [HitlAnswer(choice="maybe")]},
+        )
+    ]
+    warnings = spec.test_case_warnings()
+    assert len(warnings) == 1
+    assert "not a choice of hitl node 'gate'" in warnings[0]
+
+
+def test_test_case_warnings_accepts_waiting_expect_status():
+    from lgkit.spec import TestCaseSpec
+
+    spec = _gate_spec("hitl")
+    spec.test_cases = [TestCaseSpec(id="c1", task="t", expect_status="waiting")]
+    assert spec.test_case_warnings() == []
+
+
+def test_test_case_warnings_still_rejects_bogus_expect_status():
+    from lgkit.spec import TestCaseSpec
+
+    spec = _gate_spec("hitl")
+    spec.test_cases = [TestCaseSpec(id="c1", task="t", expect_status="bogus")]
+    warnings = spec.test_case_warnings()
+    assert len(warnings) == 1
+    assert "is not a terminal status" in warnings[0]
