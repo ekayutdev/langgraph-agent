@@ -31,3 +31,20 @@ def test_using_llm_sets_and_clears_context():
     with using_llm(llm):
         assert current_ctx().llm is llm
     assert current_ctx() is None
+
+
+def test_scripted_llm_plain_invoke_returns_ai_message_and_records_messages():
+    llm = ScriptedLLM(["hello", {"a": 1}, RuntimeError("boom")])
+    first = llm.invoke(["m1"])
+    assert first.content == "hello"
+    assert llm.invoke(["m2"]).content == '{"a": 1}'
+    with pytest.raises(RuntimeError, match="boom"):
+        llm.invoke(["m3"])
+    assert llm.calls == 3
+    assert llm.messages == [["m1"], ["m2"], ["m3"]]
+
+
+def test_scripted_llm_structured_calls_are_recorded_too():
+    llm = ScriptedLLM([{"x": 1}])
+    llm.with_structured_output(Out).invoke(["q"])
+    assert llm.messages == [["q"]]

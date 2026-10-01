@@ -16,7 +16,7 @@ from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 from langgraph.errors import GraphBubbleUp
 from pydantic import BaseModel, Field, create_model
 
-from lgkit.context import current_ctx
+from lgkit.nodes._llm import resolve_llm
 from lgkit.nodes._template import flat_state
 
 ESCALATE = "escalate"
@@ -44,31 +44,8 @@ def advice_model(choices: list[str]) -> type[BaseModel]:
 
 
 def _llm_for(params: dict[str, Any], ctx: Any) -> Any:
-    """Precedence: ctx dry-run -> (refuse if the ambient context has a dry-run
-    that did not reach us) -> per-gate llm spec -> run context llm -> lgkit
-    default.
-
-    A dry-run ALWAYS wins: it must never build a real model, even when a
-    per-gate ``llm`` spec or ``ctx.llm`` is set. If a dry-run is bound in the
-    ambient context but did not reach us as ``ctx``, the ctx plumbing
-    regressed — refuse to build a real model rather than silently spending
-    API money (mirrors lgtools' agent_node).
-    """
-    from lgkit.llm import build_llm
-
-    if ctx is not None and getattr(ctx, "dry_run", None) is not None:
-        return ctx.dry_run.model_for(
-            params.get("__node_id") or f"{params['gate_id']}__advisor"
-        )
-    bound_ctx = current_ctx()
-    if bound_ctx is not None and getattr(bound_ctx, "dry_run", None) is not None:
-        # Checked before the per-gate llm spec: that spec builds a real model too.
-        raise RuntimeError("dry-run context lost: refusing to build a real model")
-    if params.get("llm"):
-        return build_llm(**params["llm"])
-    if ctx is not None and getattr(ctx, "llm", None) is not None:
-        return ctx.llm
-    return build_llm()
+    """The model this advisor calls — see lgkit.nodes._llm.resolve_llm."""
+    return resolve_llm(params, ctx, params.get("__node_id") or f"{params['gate_id']}__advisor")
 
 
 def _system_prompt(template: str, criteria: str, choices: list[str]) -> str:
