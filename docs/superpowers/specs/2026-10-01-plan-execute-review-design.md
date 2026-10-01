@@ -54,6 +54,7 @@
 - ไม่มี `output_fields` → `llm.invoke(...)` แล้วเก็บ `.content` เป็น `str`
 - คืนค่า `{"scratch": {result_key: <ผล>}, "events": [{"node": id, "result": <ผล>, "tools": []}]}` และ `"signal": <ค่า>` เมื่อมี `signal_field`
 - **ล้มเหลวหลังลองครบ → raise** `RuntimeError("llm node '<id>' failed after N attempts: <สาเหตุล่าสุด>")` (ต่างจาก `advisor` ที่บันทึก error แล้วให้คนตัดสิน เพราะ node นี้ไม่มีคนรอรับ)
+- dry-run: ถ้า `ctx.dry_run` มี `next_mock(node_id)` (เช่น `DryRunState` ของ `lgtools`) node จะดึงคำตอบถัดไปจากตรงนั้นทุกครั้งที่ถูกรัน — `model_for()` สร้าง model ปลอมใหม่ทุกครั้ง จึงตอบคำตอบแรกซ้ำเมื่อ node อยู่ใน loop; ถ้า script หมด (`None`) ถือเป็นความล้มเหลวหนึ่งครั้ง
 - ไม่มี tool, ไม่มี loop ภายใน
 
 ### 3.3 การเลือก LLM (ใช้ร่วมกับ `advisor`)
