@@ -23,15 +23,17 @@ class Fragment:
     exit: str
     choices: tuple[str, ...]
     exits: dict[str, tuple[str, str]] = field(default_factory=dict)
+    name: str = "workflow"
 
-    def to_workflow(self, name: str = "approval_gate") -> WorkflowSpec:
-        """A standalone workflow: every exit routes to END."""
+    def to_workflow(self, name: str | None = None) -> WorkflowSpec:
+        """A standalone workflow: every exit routes to END. ``name`` wins over
+        the pattern's own ``name``."""
         if self.exits:
             ends = [EdgeSpec(source=n, target="END", condition=c) for n, c in self.exits.values()]
         else:
             ends = [EdgeSpec(source=self.exit, target="END", condition=c) for c in self.choices]
         return WorkflowSpec(
-            name=name, nodes=list(self.nodes), edges=[*self.edges, *ends], entry=self.entry
+            name=name or self.name, nodes=list(self.nodes), edges=[*self.edges, *ends], entry=self.entry
         )
 
 

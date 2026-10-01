@@ -30,6 +30,10 @@ def test_agent_gate_puts_advisor_first():
     assert (frag.entry, frag.exit) == ("g__advisor", "g")
 
 
+def test_to_workflow_defaults_to_the_pattern_id():
+    assert approval_gate("g", message="Ok?", choices=["yes"]).to_workflow().name == "g"
+
+
 def test_to_workflow_routes_every_choice_to_end():
     wf = approval_gate("g", message="Ok?", choices=["yes", "no"]).to_workflow(name="w")
     assert wf.name == "w" and wf.entry == "g"

@@ -36,11 +36,18 @@ class _AttrDict(dict):
         if key.startswith("__") and key.endswith("__"):
             raise AttributeError(key)
         value = self.get(key, _BLANK)
+        if value is None:
+            # Present but None renders like a missing key: "None" leaking into
+            # a template reads like real content (e.g. reviewer feedback).
+            return _BLANK
         return _AttrDict(value) if isinstance(value, dict) else value
 
 
 def flat_state(state: dict) -> dict:
     flat = _DefaultDict(state)
+    for key, value in state.items():
+        if value is None:
+            flat[key] = _BLANK
     flat["scratch"] = _AttrDict(state.get("scratch") or {})
     return flat
 

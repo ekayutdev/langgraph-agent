@@ -93,6 +93,7 @@ def approval_gate(
         exit=id,
         choices=tuple(choices),
         exits={c: (id, c) for c in choices},
+        name=id,
     )
 
 

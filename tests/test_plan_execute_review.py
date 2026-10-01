@@ -13,13 +13,19 @@ APPROVE = {"verdict": "approve", "feedback": ""}
 
 def _per(**kw) -> Fragment:
     args = {"planner": "Plan it.", "executor": "Do it.", "reviewer": "Check it.", **kw}
-    return plan_execute_review("doc", **args)
+    pattern_id = args.pop("id", None)
+    return plan_execute_review(pattern_id if pattern_id is not None else "doc", **args)
 
 
 def _run(wf, llm, state=None, **build_kw):
     app = build_graph(wf, **build_kw)
     with using_llm(llm):
         return app.invoke(state or {"task": "write docs"}, {"configurable": {"thread_id": "t"}})
+
+
+def test_to_workflow_names_the_workflow_after_the_pattern_id():
+    assert _per().to_workflow().name == "doc"
+    assert _per().to_workflow(name="explicit").name == "explicit"
 
 
 def test_fragment_shape():
@@ -67,6 +73,15 @@ def test_revise_sends_feedback_back_to_the_executor_and_plans_once():
     assert "the plan" in first_exec and "add an example" not in first_exec
     assert "add an example" in second_exec and "draft one" in second_exec
     assert "draft two" in llm.messages[4][-1].content  # the reviewer sees the new work
+
+
+def test_revise_without_feedback_renders_blank_not_none_in_round_two():
+    # A reviewer reply that omits feedback stores None; the round-two
+    # executor message must not contain the literal "None".
+    llm = ScriptedLLM(["plan", "draft one", {"verdict": "revise"}, "draft two", APPROVE])
+    out = _run(_per().to_workflow(), llm)
+    assert out["scratch"]["doc__result"] == "draft two"
+    assert "None" not in llm.messages[3][-1].content
 
 
 def test_exhausted_after_max_rounds_is_not_an_approval():
@@ -151,6 +166,7 @@ def test_exhausted_exit_can_feed_an_approval_gate():
         ({"executor": NodeSpec(id="x", kind="custom")}, "executor_result_key"),
         ({"executor_result_key": "k"}, "executor_result_key"),
         ({"executor": NodeSpec(id="doc__review", kind="custom"), "executor_result_key": "k"}, "doc__review"),
+        ({"id": "  "}, "plan_execute_review: id"),
     ],
 )
 def test_invalid_arguments_fail_at_build_time(kwargs, match):

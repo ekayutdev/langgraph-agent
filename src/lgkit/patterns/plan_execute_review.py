@@ -40,6 +40,8 @@ def plan_execute_review(
     executor_result_key: str | None = None,
 ) -> Fragment:
     """``max_rounds`` is the most times the execute step may run."""
+    if not isinstance(id, str) or not id.strip():
+        raise ValueError(f"plan_execute_review: id must be a non-blank pattern id, got {id!r}")
     if isinstance(max_rounds, bool) or not isinstance(max_rounds, int) or max_rounds < 1:
         raise ValueError(f"plan_execute_review: max_rounds must be a whole number >= 1, got {max_rounds!r}")
     _require_text("planner", planner)
@@ -135,6 +137,7 @@ def plan_execute_review(
         exit=review_id,
         choices=(),
         exits={"approved": (review_id, APPROVE), "exhausted": (limit_id, EXHAUSTED)},
+        name=id,
     )
 
 
