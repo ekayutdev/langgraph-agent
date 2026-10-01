@@ -27,6 +27,7 @@ NodeKind = Literal[
     "advisor",
     "approval",
     "llm",
+    "loop_limit",
 ]
 
 

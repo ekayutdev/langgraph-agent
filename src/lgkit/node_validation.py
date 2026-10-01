@@ -125,6 +125,11 @@ def _problems(spec) -> list[_Problem]:
                     )
                 )
 
+        elif node.kind == "loop_limit":
+            max_rounds = params.get("max_rounds")
+            if isinstance(max_rounds, bool) or not isinstance(max_rounds, int) or max_rounds < 1:
+                found.append((f"{where}: 'max_rounds' must be a whole number >= 1", True))
+
     return found
 
 

@@ -3,7 +3,7 @@ a kind an app registered first (an embedding app registers its own ``hitl``)."""
 
 from __future__ import annotations
 
-from lgkit.nodes import advisor, approval, hitl, llm
+from lgkit.nodes import advisor, approval, hitl, llm, loop_limit
 from lgkit.registry import NodeDef, all_node_defs, register
 
 
@@ -40,6 +40,14 @@ def _builtin_defs() -> list[NodeDef]:
             description="One LLM call — text or structured output into scratch; a structured field can be the routing signal.",
             default_params={"message": "{task}", "max_attempts": 2},
             uses_node_prompt=True,
+        ),
+        NodeDef(
+            kind="loop_limit",
+            fn=loop_limit.run,
+            default_prompt="",
+            description="Counts passes through a loop: 'again' until max_rounds, then 'exhausted'.",
+            default_params={"max_rounds": 3},
+            is_router=True,
         ),
     ]
 

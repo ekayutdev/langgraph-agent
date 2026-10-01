@@ -44,7 +44,7 @@ _NEEDS_CHECKPOINTER: frozenset[str] = frozenset({"approval"})
 # Sources whose unmatched signal ENDs the run instead of falling through to an
 # exit-key choice or the first conditional edge. For these kinds a fallthrough
 # would act on a decision nobody made (auto-approve, or loop forever).
-_END_ON_MISS_KINDS: frozenset[str] = frozenset({"approval", "llm"})
+_END_ON_MISS_KINDS: frozenset[str] = frozenset({"approval", "llm", "loop_limit"})
 
 _NODE_CACHE: InMemoryCache | None = None
 
