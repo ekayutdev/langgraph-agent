@@ -26,6 +26,8 @@ NodeKind = Literal[
     "harness",
     "advisor",
     "approval",
+    "llm",
+    "loop_limit",
 ]
 
 

@@ -3,7 +3,7 @@ a kind an app registered first (an embedding app registers its own ``hitl``)."""
 
 from __future__ import annotations
 
-from lgkit.nodes import advisor, approval, hitl
+from lgkit.nodes import advisor, approval, hitl, llm, loop_limit
 from lgkit.registry import NodeDef, all_node_defs, register
 
 
@@ -31,6 +31,22 @@ def _builtin_defs() -> list[NodeDef]:
             default_prompt="",
             description="Approval gate — a human or an agent picks a choice; the choice becomes the routing signal.",
             default_params={"approver": "human", "min_confidence": 0.7},
+            is_router=True,
+        ),
+        NodeDef(
+            kind="llm",
+            fn=llm.run,
+            default_prompt="",
+            description="One LLM call — text or structured output into scratch; a structured field can be the routing signal.",
+            default_params={"message": "{task}", "max_attempts": 2},
+            uses_node_prompt=True,
+        ),
+        NodeDef(
+            kind="loop_limit",
+            fn=loop_limit.run,
+            default_prompt="",
+            description="Counts passes through a loop: 'again' until max_rounds, then 'exhausted'.",
+            default_params={"max_rounds": 3},
             is_router=True,
         ),
     ]

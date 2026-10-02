@@ -81,6 +81,55 @@ def _problems(spec) -> list[_Problem]:
                     (f"{where}: 'choices' must be non-blank and must not contain 'escalate'", True)
                 )
 
+        elif node.kind == "llm":
+            fields = params.get("output_fields") or []
+            names = [f.get("name") for f in fields if isinstance(f, dict)]
+            if len(names) != len(fields) or any(_is_blank(n) for n in names):
+                found.append((f"{where}: every entry of 'output_fields' needs a 'name'", True))
+            if len(set(names)) != len(names):
+                found.append((f"{where}: 'output_fields' names must be unique", True))
+            bad_types = [
+                str(f.get("type"))
+                for f in fields
+                if isinstance(f, dict) and f.get("type") is not None
+                and f.get("type") not in ("string", "number", "boolean", "object", "array")
+            ]
+            if bad_types:
+                found.append((f"{where}: every 'type' in 'output_fields' must be one of string, number, boolean, object, array", True))
+            signal_field = params.get("signal_field")
+            if not _is_blank(signal_field):
+                if signal_field not in names:
+                    found.append(
+                        (f"{where}: 'signal_field' must name one of 'output_fields'", True)
+                    )
+                values = params.get("signal_values")
+                ok_values = (
+                    isinstance(values, list)
+                    and bool(values)
+                    and all(isinstance(v, str) and v.strip() for v in values)
+                )
+                if not ok_values:
+                    found.append(
+                        (
+                            f"{where}: 'signal_values' must be a list of non-blank strings when 'signal_field' is set",
+                            True,
+                        )
+                    )
+            if _is_blank(signal_field) and any(
+                e.source == node.id and e.condition for e in spec.edges
+            ):
+                found.append(
+                    (
+                        f"{where}: has conditional edges but no 'signal_field' — it would route on a stale signal",
+                        True,
+                    )
+                )
+
+        elif node.kind == "loop_limit":
+            max_rounds = params.get("max_rounds")
+            if isinstance(max_rounds, bool) or not isinstance(max_rounds, int) or max_rounds < 1:
+                found.append((f"{where}: 'max_rounds' must be a whole number >= 1", True))
+
     return found
 
 

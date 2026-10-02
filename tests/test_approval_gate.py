@@ -30,6 +30,10 @@ def test_agent_gate_puts_advisor_first():
     assert (frag.entry, frag.exit) == ("g__advisor", "g")
 
 
+def test_to_workflow_defaults_to_the_pattern_id():
+    assert approval_gate("g", message="Ok?", choices=["yes"]).to_workflow().name == "g"
+
+
 def test_to_workflow_routes_every_choice_to_end():
     wf = approval_gate("g", message="Ok?", choices=["yes", "no"]).to_workflow(name="w")
     assert wf.name == "w" and wf.entry == "g"
@@ -135,6 +139,11 @@ def test_max_iterations_on_approval_gate_with_done_choice_still_ends_run():
     app.invoke(Command(resume={"choice": "revise"}), cfg)
     assert "publish" not in ran
     assert not app.get_state(cfg).interrupts
+
+
+def test_approval_gate_fills_named_exits():
+    frag = approval_gate("g", message="Ok?", choices=["yes", "no"])
+    assert frag.exits == {"yes": ("g", "yes"), "no": ("g", "no")}
 
 
 def test_revise_loop_uses_fresh_advice_each_round():

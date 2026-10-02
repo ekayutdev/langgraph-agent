@@ -44,6 +44,12 @@ def test_approval_demo_reprompts_on_invalid_answer(monkeypatch):
     assert result["choice"] == "approve"
 
 
+def test_plan_execute_review_pattern_example_runs_offline(monkeypatch):
+    monkeypatch.delenv("LGKIT_REAL_LLM", raising=False)
+    out = _load("plan_execute_review_pattern").main()
+    assert out["approved"] is True and out["rounds"] == 1 and out["result"]
+
+
 def test_approval_demo_eof_returns_none(monkeypatch):
     mod = _load("approval_demo")
     monkeypatch.delenv("LGKIT_REAL_LLM", raising=False)

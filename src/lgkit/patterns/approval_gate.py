@@ -5,29 +5,11 @@ the result opens in any spec-based editor and compiles with build_graph."""
 from __future__ import annotations
 
 import string
-from dataclasses import dataclass
 from typing import Any, Literal
 
 from lgkit.nodes.advisor import ESCALATE, advice_key
-from lgkit.spec import EdgeSpec, NodeSpec, WorkflowSpec
-
-
-@dataclass(frozen=True)
-class Fragment:
-    """Nodes + internal edges of a pattern. Wire an edge into ``entry`` and
-    route out of ``exit`` with ``condition=<choice>``."""
-
-    nodes: tuple[NodeSpec, ...]
-    edges: tuple[EdgeSpec, ...]
-    entry: str
-    exit: str
-    choices: tuple[str, ...]
-
-    def to_workflow(self, name: str = "approval_gate") -> WorkflowSpec:
-        ends = [EdgeSpec(source=self.exit, target="END", condition=c) for c in self.choices]
-        return WorkflowSpec(
-            name=name, nodes=list(self.nodes), edges=[*self.edges, *ends], entry=self.entry
-        )
+from lgkit.patterns._fragment import Fragment
+from lgkit.spec import EdgeSpec, NodeSpec
 
 
 def _check_template(message: str) -> None:
@@ -105,7 +87,13 @@ def approval_gate(
     nodes.append(NodeSpec(id=id, kind="approval", params=gate_params))
 
     return Fragment(
-        nodes=tuple(nodes), edges=tuple(edges), entry=nodes[0].id, exit=id, choices=tuple(choices)
+        nodes=tuple(nodes),
+        edges=tuple(edges),
+        entry=nodes[0].id,
+        exit=id,
+        choices=tuple(choices),
+        exits={c: (id, c) for c in choices},
+        name=id,
     )
 
 

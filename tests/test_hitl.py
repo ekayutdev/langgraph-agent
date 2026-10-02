@@ -30,6 +30,19 @@ def test_flat_state_tolerates_missing_and_nested_keys():
     assert "{task}|{nope}|{scratch.a.b}|{scratch.zz}".format_map(flat) == "t||deep|"
 
 
+def test_flat_state_tolerates_chained_access_on_missing_keys():
+    flat = flat_state({"task": "t", "scratch": {"a": {"b": "x"}}})
+    assert "[{scratch.nope.deeper}][{scratch.a.zz.more}][{scratch.a.b}]".format_map(flat) == "[][][x]"
+
+
+def test_flat_state_renders_a_present_but_none_value_as_blank():
+    # A reviewer reply with no feedback stores None; "None" leaking into a
+    # message template reads like feedback, so it must render like a missing
+    # key — on nested attribute paths and top-level keys alike.
+    flat = flat_state({"x": None, "scratch": {"r": {"feedback": None}}})
+    assert "[{scratch.r.feedback}][{x}]".format_map(flat) == "[][]"
+
+
 def test_hitl_pauses_then_resumes_with_choice():
     app = build_graph(_gate_spec(), checkpointer=InMemorySaver())
     cfg = {"configurable": {"thread_id": "h1"}}
